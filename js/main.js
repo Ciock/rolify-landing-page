@@ -17,6 +17,11 @@ function saveConsent(value) {
   } catch {}
 }
 
+function conversionId() {
+  // randomUUID is missing on Safari < 15.4.
+  return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 function loadRedditPixel() {
   if (window.rdt) return;
   const rdt = (window.rdt = function () {
@@ -28,7 +33,7 @@ function loadRedditPixel() {
   script.async = true;
   document.head.appendChild(script);
   rdt("init", PIXEL_ID);
-  rdt("track", "PageVisit");
+  rdt("track", "PageVisit", { conversionId: conversionId() });
 }
 
 const links = storeLinks(location.search);
@@ -38,7 +43,7 @@ for (const anchor of document.querySelectorAll("[data-store]")) {
   anchor.addEventListener("click", (event) => {
     if (!window.rdt || event.metaKey || event.ctrlKey || event.shiftKey) return;
     event.preventDefault();
-    window.rdt("track", "Custom", { customEventName: `${store}_click` });
+    window.rdt("track", "Custom", { customEventName: `${store}_click`, conversionId: conversionId() });
     // Give the pixel request time to leave before the store takes over the page.
     setTimeout(() => location.assign(anchor.href), 300);
   });
