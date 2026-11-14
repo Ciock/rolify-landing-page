@@ -1,0 +1,21 @@
+# Cloudflare Pages response headers. Copied into dist/ by `npm run build`.
+# Docs: https://developers.cloudflare.com/pages/configuration/headers/
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=()
+  # script-src: the Reddit Pixel loader. style-src inline: the <style> block in privacy.html.
+  # img-src/connect-src stay open to https: because the pixel beacons to Reddit hosts.
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://www.redditstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; frame-src https:; base-uri 'none'; form-action 'none'; object-src 'none'
+
+# Asset names carry no content hash, so nothing here is immutable.
+/assets/*
+  Cache-Control: public, max-age=604800
+
+/css/*
+  Cache-Control: public, max-age=3600
+
+/js/*
+  Cache-Control: public, max-age=3600
