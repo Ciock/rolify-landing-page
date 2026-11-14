@@ -12,7 +12,7 @@
 import { writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 
-const SITE_URL = "https://rolify.pages.dev/";
+const SITE_URL = "https://rolify-app.pages.dev/";
 const DEFAULT_TARGET = `${SITE_URL}?utm_source=reddit&utm_campaign=desktop_qr`;
 const PROLOG =
   '<?xml version="1.0" encoding="utf-8"?>' +
