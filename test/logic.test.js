@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { storeLinks, needsConsent } from "../js/logic.js";
+import { storeLinks, needsConsent, detectPlatform } from "../js/logic.js";
 
 test("store links default to reddit source without a campaign", () => {
   const { ios, android } = storeLinks("");
@@ -51,4 +51,23 @@ test("consent needed only for European time zones", () => {
 test("unknown time zone asks for consent", () => {
   assert.equal(needsConsent(undefined), true);
   assert.equal(needsConsent(""), true);
+});
+
+test("phones are sent to their own store", () => {
+  const iphone = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148";
+  const pixel = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36";
+  assert.equal(detectPlatform(iphone, 5), "ios");
+  assert.equal(detectPlatform(pixel, 5), "android");
+});
+
+test("iPadOS posing as a Mac counts as ios, a real Mac stays desktop", () => {
+  const mac = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15";
+  assert.equal(detectPlatform(mac, 5), "ios");
+  assert.equal(detectPlatform(mac, 0), "desktop");
+});
+
+test("desktop and missing user agent stay on the landing page", () => {
+  const win = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36";
+  assert.equal(detectPlatform(win, 0), "desktop");
+  assert.equal(detectPlatform(), "desktop");
 });

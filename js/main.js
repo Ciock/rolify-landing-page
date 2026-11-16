@@ -1,4 +1,4 @@
-import { storeLinks, needsConsent } from "./logic.js";
+import { storeLinks, needsConsent, detectPlatform } from "./logic.js";
 
 const PIXEL_ID = "a2_joi0e8mo3n5p";
 const CONSENT_KEY = "rolify-consent";
@@ -51,10 +51,19 @@ for (const anchor of document.querySelectorAll("[data-store]")) {
 
 const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const consent = readConsent();
+const pixelAllowed = consent === "accepted" || (consent !== "declined" && !needsConsent(timeZone));
+const platform = detectPlatform(navigator.userAgent, navigator.maxTouchPoints);
 
-if (consent === "accepted" || (consent !== "declined" && !needsConsent(timeZone))) {
-  loadRedditPixel();
-} else if (consent !== "declined") {
+if (pixelAllowed) loadRedditPixel();
+
+if (platform !== "desktop") {
+  // Phones and tablets go straight to their store; only desktop stays here.
+  // replace() keeps the landing page out of the back-button history.
+  // Without consent there is no pixel and no banner, so leave at once.
+  const go = () => location.replace(links[platform]);
+  if (pixelAllowed) setTimeout(go, 300); // let the PageVisit request leave first
+  else go();
+} else if (!pixelAllowed && consent !== "declined") {
   const bar = document.querySelector(".consent");
   bar.hidden = false;
   bar.addEventListener("click", (event) => {
