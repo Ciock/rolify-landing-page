@@ -41,3 +41,12 @@ export function needsConsent(timeZone) {
   if (!timeZone) return true;
   return timeZone.startsWith("Europe/") || EUROPEAN_OUTLIERS.has(timeZone);
 }
+
+// "ios" | "android" | "desktop". iPadOS 13+ reports a Mac user agent, so a
+// touch-capable "Macintosh" is treated as an iPad.
+export function detectPlatform(userAgent = "", maxTouchPoints = 0) {
+  if (/iPhone|iPad|iPod/i.test(userAgent)) return "ios";
+  if (/Macintosh/i.test(userAgent) && maxTouchPoints > 1) return "ios";
+  if (/Android/i.test(userAgent)) return "android";
+  return "desktop";
+}

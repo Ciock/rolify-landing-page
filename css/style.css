@@ -194,6 +194,10 @@ a {
   opacity: 0.8;
 }
 
+.footer a + a {
+  margin-left: 12px;
+}
+
 .footer a:hover {
   opacity: 1;
   text-decoration: underline;
