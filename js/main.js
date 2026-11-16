@@ -61,7 +61,10 @@ if (platform !== "desktop") {
   // replace() keeps the landing page out of the back-button history.
   // Without consent there is no pixel and no banner, so leave at once.
   const go = () => location.replace(links[platform]);
-  if (pixelAllowed) setTimeout(go, 300); // let the PageVisit request leave first
+  if (pixelAllowed) {
+    window.rdt("track", "Custom", { customEventName: `${platform}_redirect`, conversionId: conversionId() });
+    setTimeout(go, 300); // let the pixel requests leave first
+  }
   else go();
 } else if (!pixelAllowed && consent !== "declined") {
   const bar = document.querySelector(".consent");
