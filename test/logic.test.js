@@ -96,3 +96,32 @@ test("desktop and missing user agent stay on the landing page", () => {
   assert.equal(detectPlatform(win, 0), "desktop");
   assert.equal(detectPlatform(), "desktop");
 });
+
+const parseIntent = (intent) => {
+  const [head, fragment] = intent.split("#");
+  const query = new URLSearchParams(head.slice(head.indexOf("?") + 1));
+  const extras = Object.fromEntries(
+    fragment.split(";").filter((p) => p.includes("=")).map((p) => [p.slice(0, p.indexOf("=")), p.slice(p.indexOf("=") + 1)]),
+  );
+  return { head, fragment, query, extras };
+};
+
+for (const [name, search, expected] of [
+  ["all utm params", "?utm_source=reddit&utm_medium=paid&utm_campaign=nov-videos&utm_content=post&utm_term=ag1", "utm_source=reddit&utm_medium=paid&utm_campaign=nov-videos&utm_content=post&utm_term=ag1"],
+  ["only utm_source", "?utm_source=discord", "utm_source=discord&utm_medium=paid_social"],
+  ["no params", "", "utm_source=reddit&utm_medium=paid_social"],
+]) {
+  test(`android intent url is well formed: ${name}`, () => {
+    const { android, androidIntent } = storeLinks(search);
+    assert.ok(androidIntent.startsWith("intent://details?id=com.lucaoropallo.rolify&referrer="));
+    const { query, fragment, extras } = parseIntent(androidIntent);
+    assert.equal(query.get("id"), "com.lucaoropallo.rolify");
+    assert.equal(query.get("referrer"), expected);
+    assert.equal(query.get("referrer"), new URL(android).searchParams.get("referrer"));
+    assert.ok(fragment.startsWith("Intent;scheme=market;package=com.android.vending;"));
+    assert.ok(fragment.endsWith(";end"));
+    assert.equal(decodeURIComponent(extras["S.browser_fallback_url"]), android);
+    // referrer encoded once: no %25 double-encoding in the intent query
+    assert.equal(androidIntent.split("#")[0].includes("%25"), false);
+  });
+}

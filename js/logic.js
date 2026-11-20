@@ -1,6 +1,7 @@
 const APP_STORE_URL = "https://apps.apple.com/app/id1511308478";
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details";
 const ANDROID_PACKAGE = "com.lucaoropallo.rolify";
+const PLAY_STORE_APP_PACKAGE = "com.android.vending";
 const APP_STORE_CT_MAX = 40;
 
 // EU/EEA/UK territories whose IANA zones live outside Europe/*.
@@ -54,9 +55,17 @@ export function storeLinks(search) {
   if (campaign) referrer.set("utm_campaign", campaign);
   if (content) referrer.set("utm_content", content);
   if (term) referrer.set("utm_term", term);
-  const android = `${PLAY_STORE_URL}?${new URLSearchParams({ id: ANDROID_PACKAGE, referrer: referrer.toString() })}`;
+  const playQuery = new URLSearchParams({ id: ANDROID_PACKAGE, referrer: referrer.toString() }).toString();
+  const android = `${PLAY_STORE_URL}?${playQuery}`;
 
-  return { ios, android };
+  // Opens the Play Store app directly. Inside in-app browsers the https link
+  // often lands on the Play web page, whose installs carry no install referrer.
+  // The query is the same string as the https link, so the referrer is encoded once.
+  const androidIntent =
+    `intent://details?${playQuery}#Intent;scheme=market;package=${PLAY_STORE_APP_PACKAGE};` +
+    `S.browser_fallback_url=${encodeURIComponent(android)};end`;
+
+  return { ios, android, androidIntent };
 }
 
 export function needsConsent(timeZone) {

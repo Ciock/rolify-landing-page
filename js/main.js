@@ -39,7 +39,10 @@ function loadRedditPixel() {
 const links = storeLinks(location.search);
 for (const anchor of document.querySelectorAll("[data-store]")) {
   const store = anchor.dataset.store;
-  anchor.href = links[store];
+  // Android phones open the Play Store app directly so the install keeps its referrer.
+  anchor.href = store === "android" && detectPlatform(navigator.userAgent, navigator.maxTouchPoints) === "android"
+    ? links.androidIntent
+    : links[store];
   anchor.addEventListener("click", (event) => {
     if (!window.rdt || event.metaKey || event.ctrlKey || event.shiftKey) return;
     event.preventDefault();
@@ -47,6 +50,21 @@ for (const anchor of document.querySelectorAll("[data-store]")) {
     // Give the pixel request time to leave before the store takes over the page.
     setTimeout(() => location.assign(anchor.href), 300);
   });
+}
+
+// Some WebViews refuse intent:// links and stay put. If the page is still
+// visible and never lost focus shortly after the redirect, use the https link.
+function watchForBlockedIntent() {
+  let left = false;
+  const markLeft = () => { left = true; };
+  window.addEventListener("pagehide", markLeft);
+  window.addEventListener("blur", markLeft);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") markLeft();
+  });
+  setTimeout(() => {
+    if (!left && document.visibilityState === "visible") location.replace(links.android);
+  }, 1500);
 }
 
 const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -60,7 +78,11 @@ if (platform !== "desktop") {
   // Phones and tablets go straight to their store; only desktop stays here.
   // replace() keeps the landing page out of the back-button history.
   // Without consent there is no pixel and no banner, so leave at once.
-  const go = () => location.replace(links[platform]);
+  const target = platform === "android" ? links.androidIntent : links[platform];
+  const go = () => {
+    location.replace(target);
+    if (platform === "android") watchForBlockedIntent();
+  };
   if (pixelAllowed) {
     window.rdt("track", "Custom", { customEventName: `${platform}_redirect`, conversionId: conversionId() });
     setTimeout(go, 300); // let the pixel requests leave first
