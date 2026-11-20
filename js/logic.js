@@ -22,16 +22,38 @@ const EUROPEAN_OUTLIERS = new Set([
   "Arctic/Longyearbyen",
 ]);
 
+// App Store Connect accepts only letters, digits, "-", "_" and "." in ct.
+const ctSafe = (value) => value.replace(/[^A-Za-z0-9\-_.]/g, "-");
+
+// "<source>-<campaign>-<content>", at most APP_STORE_CT_MAX chars. When too
+// long the campaign is shortened first so the ad (content) survives.
+function appStoreCampaignToken(source, campaign, content) {
+  const head = ctSafe(source);
+  const tail = content ? ctSafe(content) : "";
+  let mid = campaign ? ctSafe(campaign) : "";
+  const separators = 1 * Boolean(mid) + 1 * Boolean(tail);
+  const room = APP_STORE_CT_MAX - head.length - tail.length - separators;
+  mid = room > 0 ? mid.slice(0, room) : "";
+  return [head, mid, tail].filter(Boolean).join("-").slice(0, APP_STORE_CT_MAX);
+}
+
 export function storeLinks(search) {
   const params = new URLSearchParams(search);
   const source = params.get("utm_source") || "reddit";
   const campaign = params.get("utm_campaign");
+  const content = params.get("utm_content");
+  const term = params.get("utm_term");
 
-  const ct = (campaign ? `${source}-${campaign}` : source).slice(0, APP_STORE_CT_MAX);
+  const ct = appStoreCampaignToken(source, campaign, content);
   const ios = `${APP_STORE_URL}?${new URLSearchParams({ ct })}`;
 
-  const referrer = new URLSearchParams({ utm_source: source, utm_medium: "paid_social" });
+  const referrer = new URLSearchParams({
+    utm_source: source,
+    utm_medium: params.get("utm_medium") || "paid_social",
+  });
   if (campaign) referrer.set("utm_campaign", campaign);
+  if (content) referrer.set("utm_content", content);
+  if (term) referrer.set("utm_term", term);
   const android = `${PLAY_STORE_URL}?${new URLSearchParams({ id: ANDROID_PACKAGE, referrer: referrer.toString() })}`;
 
   return { ios, android };

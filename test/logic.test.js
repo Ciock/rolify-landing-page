@@ -2,7 +2,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { storeLinks, needsConsent, detectPlatform } from "../js/logic.js";
 
-test("store links default to reddit source without a campaign", () => {
+const referrerOf = (android) => new URLSearchParams(new URL(android).searchParams.get("referrer"));
+const ctOf = (ios) => new URL(ios).searchParams.get("ct");
+
+test("no params defaults to reddit / paid_social", () => {
   const { ios, android } = storeLinks("");
   assert.equal(ios, "https://apps.apple.com/app/id1511308478?ct=reddit");
   const url = new URL(android);
@@ -10,31 +13,53 @@ test("store links default to reddit source without a campaign", () => {
   assert.equal(url.searchParams.get("referrer"), "utm_source=reddit&utm_medium=paid_social");
 });
 
-test("utm_campaign is forwarded to both stores", () => {
-  const { ios, android } = storeLinks("?utm_campaign=dm_tavern");
-  assert.equal(new URL(ios).searchParams.get("ct"), "reddit-dm_tavern");
-  const referrer = new URLSearchParams(new URL(android).searchParams.get("referrer"));
-  assert.equal(referrer.get("utm_source"), "reddit");
-  assert.equal(referrer.get("utm_campaign"), "dm_tavern");
+test("all five utm params reach both stores", () => {
+  const { ios, android } = storeLinks(
+    "?utm_source=reddit&utm_medium=paid&utm_campaign=nov-videos&utm_content=layers-v&utm_term=ag1",
+  );
+  assert.equal(ctOf(ios), "reddit-nov-videos-layers-v");
+  assert.equal(
+    new URL(android).searchParams.get("referrer"),
+    "utm_source=reddit&utm_medium=paid&utm_campaign=nov-videos&utm_content=layers-v&utm_term=ag1",
+  );
 });
 
-test("utm_source overrides the reddit default", () => {
+test("only utm_source present keeps the other defaults and omits missing params", () => {
   const { ios, android } = storeLinks("?utm_source=discord");
-  assert.equal(new URL(ios).searchParams.get("ct"), "discord");
-  const referrer = new URLSearchParams(new URL(android).searchParams.get("referrer"));
+  assert.equal(ctOf(ios), "discord");
+  const referrer = referrerOf(android);
   assert.equal(referrer.get("utm_source"), "discord");
-});
-
-test("app store campaign token is capped at 40 characters", () => {
-  const { ios } = storeLinks("?utm_campaign=" + "x".repeat(60));
-  assert.equal(new URL(ios).searchParams.get("ct").length, 40);
-});
-
-test("campaign values with special characters stay encoded", () => {
-  const { android } = storeLinks("?utm_campaign=a%26b%3Dc");
-  const referrer = new URLSearchParams(new URL(android).searchParams.get("referrer"));
-  assert.equal(referrer.get("utm_campaign"), "a&b=c");
   assert.equal(referrer.get("utm_medium"), "paid_social");
+  for (const key of ["utm_campaign", "utm_content", "utm_term"]) assert.equal(referrer.has(key), false);
+});
+
+test("ct skips a missing campaign or content", () => {
+  assert.equal(ctOf(storeLinks("?utm_campaign=dm_tavern").ios), "reddit-dm_tavern");
+  assert.equal(ctOf(storeLinks("?utm_content=layers-v").ios), "reddit-layers-v");
+});
+
+test("long campaign is shortened so the content survives, ct <= 40", () => {
+  const content = "layers-v";
+  const { ios } = storeLinks(`?utm_campaign=${"c".repeat(60)}&utm_content=${content}`);
+  const ct = ctOf(ios);
+  assert.ok(ct.length <= 40);
+  assert.ok(ct.endsWith(`-${content}`));
+  assert.ok(ct.startsWith("reddit-c"));
+});
+
+test("ct is hard-capped when source and content alone are too long", () => {
+  const { ios } = storeLinks(`?utm_campaign=abc&utm_content=${"x".repeat(60)}`);
+  const ct = ctOf(ios);
+  assert.equal(ct.length, 40);
+  assert.equal(ct.includes("abc"), false);
+});
+
+test("spaces and symbols: ct sanitized, referrer keeps the raw value encoded", () => {
+  const { ios, android } = storeLinks("?utm_campaign=a%20b%26c&utm_content=x%2Fy%3Dz");
+  assert.equal(ctOf(ios), "reddit-a-b-c-x-y-z");
+  const referrer = referrerOf(android);
+  assert.equal(referrer.get("utm_campaign"), "a b&c");
+  assert.equal(referrer.get("utm_content"), "x/y=z");
 });
 
 test("consent needed only for European time zones", () => {
